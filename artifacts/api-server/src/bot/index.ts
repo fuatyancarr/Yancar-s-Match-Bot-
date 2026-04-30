@@ -4,8 +4,8 @@ import {
   GatewayIntentBits,
   type Interaction,
 } from "discord.js";
-import { logger } from "../lib/logger";
-import { buildCommandCollection, registerSlashCommands } from "./registry";
+import { logger } from "../lib/logger.js";
+import { buildCommandCollection, registerSlashCommands } from "./registry.js";
 
 export async function startDiscordBot(): Promise<void> {
   const token = process.env["DISCORD_BOT_TOKEN"];
