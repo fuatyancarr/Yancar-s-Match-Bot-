@@ -1,11 +1,11 @@
-import {
+İmport {
   Client,
   Events,
   GatewayIntentBits,
   type Interaction,
 } from "discord.js";
-import { logger } from "../lib/logger.js";
-import { buildCommandCollection, registerSlashCommands } from "./registry.js";
+import { logger } from "../lib/logger";
+import { buildCommandCollection, registerSlashCommands } from "./registry";
 
 export async function startDiscordBot(): Promise<void> {
   const token = process.env["DISCORD_BOT_TOKEN"];
@@ -54,36 +54,3 @@ export async function startDiscordBot(): Promise<void> {
       return;
     }
     try {
-      await command.execute(interaction);
-    } catch (err) {
-      logger.error(
-        { err, command: interaction.commandName },
-        "Komut yürütme hatası",
-      );
-      const errorMsg = {
-        content:
-          "❌ Komut çalıştırılırken beklenmedik bir hata oluştu. Lütfen tekrar deneyin.",
-        ephemeral: true,
-      };
-      try {
-        if (interaction.deferred || interaction.replied) {
-          await interaction.followUp(errorMsg);
-        } else {
-          await interaction.reply(errorMsg);
-        }
-      } catch (replyErr) {
-        logger.error({ err: replyErr }, "Hata mesajı gönderilemedi");
-      }
-    }
-  });
-
-  client.on(Events.Error, (err) => {
-    logger.error({ err }, "Discord client hatası");
-  });
-
-  try {
-    await client.login(token);
-  } catch (err) {
-    logger.error({ err }, "Discord bot girişi başarısız");
-  }
-}
