@@ -1,51 +1,52 @@
 import { SlashCommandBuilder } from "discord.js";
-import { findTeamByName } from "../services/teams";
-import { getTactic } from "../services/tactics";
-import { errorEmbed, primaryEmbed, infoEmbed, teamColor } from "../util/embeds";
+import { findTeamByName, searchTeams } from "../services/teams";
+import { getTacticForMatch } from "../services/tactics";
+import { errorEmbed, primaryEmbed, teamColor } from "../util/embeds";
+import { findFormation } from "../util/formations";
 import type { SlashCommand } from "./types";
 
 export const command: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("taktik-bilgi")
-    .setDescription("Bir takımın aktif taktiğini gösterir")
+    .setDescription("Bir takımın aktif taktik dizilişini gösterir")
     .addStringOption((o) =>
-      o.setName("takim").setDescription("Takım adı").setRequired(true),
+      o
+        .setName("takim")
+        .setDescription("Takım adı")
+        .setRequired(true)
+        .setAutocomplete(true),
     ),
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "takim") return;
+    const teams = await searchTeams(String(focused.value), 25);
+    await interaction.respond(
+      teams.map((t) => ({ name: `${t.name} (${t.shortName})`, value: t.name })),
+    );
+  },
   async execute(interaction) {
-    const query = interaction.options.getString("takim", true);
-    const team = await findTeamByName(query);
+    const teamQ = interaction.options.getString("takim", true);
+    const team = await findTeamByName(teamQ);
     if (!team) {
       await interaction.reply({
-        embeds: [errorEmbed("Takım Bulunamadı", `\`${query}\` adında bir takım yok.`)],
+        embeds: [errorEmbed("Takım Bulunamadı", `\`${teamQ}\``)],
         ephemeral: true,
       });
       return;
     }
-    const tactic = await getTactic(team.id);
-    if (!tactic) {
-      await interaction.reply({
-        embeds: [
-          infoEmbed(
-            `${team.name} — Standart Taktik`,
-            "Bu takım taktik dosyası yüklemediği için sistem **Standart 4-4-2 (+2)** taktiğini uygulayacak.\n\n" +
-              "`/taktik-yukle` ile özel taktik yükleyebilirsiniz.",
-          ),
-        ],
-      });
-      return;
-    }
-
-    const embed = primaryEmbed(`${team.name} — Aktif Taktik`)
+    const tactic = await getTacticForMatch(team.id);
+    const f = findFormation(team.formation);
+    const embed = primaryEmbed(`📋 ${team.name} — Taktik`)
       .setColor(teamColor(team.color))
-      .addFields(
-        { name: "📁 Dosya", value: `\`${tactic.fileName}\``, inline: true },
-        { name: "📐 Diziliş", value: tactic.formation, inline: true },
-        { name: "🧠 Boost", value: `**+${tactic.tacticScore}** / 6`, inline: true },
-        { name: "🤖 AI Analizi", value: tactic.analysis.slice(0, 1024) },
-      )
-      .setFooter({
-        text: `Son güncelleme: ${tactic.updatedAt.toLocaleString("tr-TR")}`,
-      });
+      .setDescription(
+        `**Diziliş:** ${tactic.formationLabel}\n` +
+          `**Stil:** ${tactic.style}\n` +
+          `**Taktik Boostu:** +${tactic.tacticScore}\n\n` +
+          `${tactic.analysis}` +
+          (f
+            ? `\n\n📐 ${f.positionLayout.GK} Kaleci • ${f.positionLayout.DEF} Defans • ${f.positionLayout.MID} Orta Saha • ${f.positionLayout.FWD} Forvet`
+            : ""),
+      );
     await interaction.reply({ embeds: [embed] });
   },
 };

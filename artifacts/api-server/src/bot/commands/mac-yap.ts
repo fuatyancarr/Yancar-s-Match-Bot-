@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { findTeamByName } from "../services/teams";
+import { findTeamByName, searchTeams } from "../services/teams";
 import { simulateMatch } from "../services/match";
 import { requireAdmin } from "../util/permissions";
 import { errorEmbed, primaryEmbed, teamColor } from "../util/embeds";
@@ -9,13 +9,29 @@ import type { SlashCommand } from "./types";
 export const command: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("mac-yap")
-    .setDescription("İki takım arasında maç simülasyonu başlatır (Sadece Yönetici)")
+    .setDescription("İki takım arasında maç simülasyonu (Sadece Yönetici, kadrolar zorunlu)")
     .addStringOption((o) =>
-      o.setName("ev").setDescription("Ev sahibi takım").setRequired(true),
+      o
+        .setName("ev")
+        .setDescription("Ev sahibi takım")
+        .setRequired(true)
+        .setAutocomplete(true),
     )
     .addStringOption((o) =>
-      o.setName("deplasman").setDescription("Deplasman takımı").setRequired(true),
+      o
+        .setName("deplasman")
+        .setDescription("Deplasman takımı")
+        .setRequired(true)
+        .setAutocomplete(true),
     ),
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "ev" && focused.name !== "deplasman") return;
+    const teams = await searchTeams(String(focused.value), 25);
+    await interaction.respond(
+      teams.map((t) => ({ name: `${t.name} (${t.shortName})`, value: t.name })),
+    );
+  },
   async execute(interaction) {
     if (!(await requireAdmin(interaction))) return;
     const homeQ = interaction.options.getString("ev", true);
@@ -41,9 +57,7 @@ export const command: SlashCommand = {
     }
     if (home.id === away.id) {
       await interaction.reply({
-        embeds: [
-          errorEmbed("Geçersiz Eşleşme", "Bir takım kendisiyle maç yapamaz."),
-        ],
+        embeds: [errorEmbed("Geçersiz Eşleşme", "Bir takım kendisiyle maç yapamaz.")],
         ephemeral: true,
       });
       return;
@@ -62,7 +76,6 @@ export const command: SlashCommand = {
       return;
     }
 
-    // Pre-match GPR breakdown embed
     const gprEmbed = primaryEmbed(
       `📋 Maç Hazırlığı: ${home.shortName} vs ${away.shortName}`,
     )
@@ -72,19 +85,18 @@ export const command: SlashCommand = {
           name: `🏠 ${home.name}`,
           value:
             `Baz: **${home.baseRating}** + Ev: **+3** + Taktik: **+${result.homeTacticScore}**\n` +
-            `→ **GPR: ${result.homeGpr}** (${result.homeTactic.formation})`,
+            `→ **GPR: ${result.homeGpr}** (${result.homeTactic.formationLabel})`,
           inline: false,
         },
         {
           name: `✈️ ${away.name}`,
           value:
             `Baz: **${away.baseRating}** + Ev: **+0** + Taktik: **+${result.awayTacticScore}**\n` +
-            `→ **GPR: ${result.awayGpr}** (${result.awayTactic.formation})`,
+            `→ **GPR: ${result.awayGpr}** (${result.awayTactic.formationLabel})`,
           inline: false,
         },
       );
 
-    // Live events embed
     const eventLines: string[] = [];
     let firstHalfShown = false;
     for (const ev of result.events) {

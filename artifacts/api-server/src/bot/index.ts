@@ -26,6 +26,24 @@ export async function startDiscordBot(): Promise<void> {
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+    if (interaction.isAutocomplete()) {
+      const command = commands.get(interaction.commandName);
+      if (!command || !command.autocomplete) return;
+      try {
+        await command.autocomplete(interaction);
+      } catch (err) {
+        logger.error(
+          { err, command: interaction.commandName },
+          "Autocomplete hatası",
+        );
+        try {
+          if (!interaction.responded) await interaction.respond([]);
+        } catch {
+          /* noop */
+        }
+      }
+      return;
+    }
     if (!interaction.isChatInputCommand()) return;
     const command = commands.get(interaction.commandName);
     if (!command) {

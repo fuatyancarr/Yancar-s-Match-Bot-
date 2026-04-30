@@ -13,9 +13,12 @@ export const playersTable = pgTable("players", {
     .notNull()
     .references(() => teamsTable.id, { onDelete: "cascade" }),
   discordUserId: text("discord_user_id"),
+  guildId: text("guild_id"),
   name: text("name").notNull(),
   position: text("position").notNull(),
-  rating: integer("rating").notNull().default(70),
+  gen: integer("rating").notNull().default(55),
+  trainingsSinceGen: integer("trainings_since_gen").notNull().default(0),
+  lastTrainingAt: timestamp("last_training_at"),
   goals: integer("goals").notNull().default(0),
   assists: integer("assists").notNull().default(0),
   yellowCards: integer("yellow_cards").notNull().default(0),

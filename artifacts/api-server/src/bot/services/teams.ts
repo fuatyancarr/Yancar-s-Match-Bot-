@@ -1,5 +1,6 @@
 import { db, teamsTable, playersTable } from "@workspace/db";
 import { eq, ilike, or, desc, sql } from "drizzle-orm";
+import { positionCategory } from "../util/positions";
 
 export async function findTeamByName(query: string) {
   const q = query.trim();
@@ -74,24 +75,20 @@ export async function teamSquad(teamId: number) {
     .select()
     .from(playersTable)
     .where(eq(playersTable.teamId, teamId))
-    .orderBy(desc(playersTable.rating));
+    .orderBy(desc(playersTable.gen));
 }
 
-const POSITION_ORDER: Record<string, number> = {
+const POSITION_ORDER: Record<"GK" | "DEF" | "MID" | "FWD", number> = {
   GK: 0,
-  KL: 0,
   DEF: 1,
-  DF: 1,
   MID: 2,
-  OS: 2,
   FWD: 3,
-  FB: 3,
 };
 
 export function sortBySquadPosition<T extends { position: string }>(arr: T[]) {
   return [...arr].sort(
     (a, b) =>
-      (POSITION_ORDER[a.position.toUpperCase()] ?? 99) -
-      (POSITION_ORDER[b.position.toUpperCase()] ?? 99),
+      POSITION_ORDER[positionCategory(a.position)] -
+      POSITION_ORDER[positionCategory(b.position)],
   );
 }

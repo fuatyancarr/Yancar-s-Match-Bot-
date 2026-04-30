@@ -1,9 +1,10 @@
 import { SlashCommandBuilder } from "discord.js";
 import { db, playersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { findTeamByName } from "../services/teams";
+import { findTeamByName, searchTeams } from "../services/teams";
 import { requireAdmin } from "../util/permissions";
 import { successEmbed, errorEmbed } from "../util/embeds";
+import { syncPlayerNickname } from "../services/gen";
 import type { SlashCommand } from "./types";
 
 export const command: SlashCommand = {
@@ -17,8 +18,20 @@ export const command: SlashCommand = {
         .setRequired(true),
     )
     .addStringOption((o) =>
-      o.setName("yeni-takim").setDescription("Yeni takım adı").setRequired(true),
+      o
+        .setName("yeni-takim")
+        .setDescription("Yeni takım adı")
+        .setRequired(true)
+        .setAutocomplete(true),
     ),
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "yeni-takim") return;
+    const teams = await searchTeams(String(focused.value), 25);
+    await interaction.respond(
+      teams.map((t) => ({ name: `${t.name} (${t.shortName})`, value: t.name })),
+    );
+  },
   async execute(interaction) {
     if (!(await requireAdmin(interaction))) return;
     const user = interaction.options.getUser("oyuncu", true);
@@ -63,10 +76,15 @@ export const command: SlashCommand = {
       return;
     }
 
-    await db
+    const [updated] = await db
       .update(playersTable)
       .set({ teamId: team.id })
-      .where(eq(playersTable.id, player.id));
+      .where(eq(playersTable.id, player.id))
+      .returning();
+
+    if (updated) {
+      await syncPlayerNickname(interaction.guild, updated);
+    }
 
     await interaction.reply({
       embeds: [

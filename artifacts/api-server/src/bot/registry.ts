@@ -7,7 +7,8 @@ import { command as takimBilgi } from "./commands/takim-bilgi";
 import { command as takimListesi } from "./commands/takim-listesi";
 import { command as oyuncuEkle } from "./commands/oyuncu-ekle";
 import { command as kadro } from "./commands/kadro";
-import { command as taktikYukle } from "./commands/taktik-yukle";
+import { command as kadroEkle } from "./commands/kadro-ekle";
+import { command as taktikBelirle } from "./commands/taktik-belirle";
 import { command as taktikBilgi } from "./commands/taktik-bilgi";
 import { command as macYap } from "./commands/mac-yap";
 import { command as puanTablosu } from "./commands/puan-tablosu";
@@ -17,6 +18,11 @@ import { command as transfer } from "./commands/transfer";
 import { command as reytingGuncelle } from "./commands/reyting-guncelle";
 import { command as sezonBaslat } from "./commands/sezon-baslat";
 import { command as yardim } from "./commands/yardim";
+import { command as antrenman } from "./commands/antrenman";
+import { command as genArttir } from "./commands/genarttir";
+import { command as genDusur } from "./commands/gendusur";
+import { command as genAyarla } from "./commands/genayarla";
+import { command as yetkiliRol } from "./commands/yetkili-rol";
 
 export const allCommands: SlashCommand[] = [
   yardim,
@@ -25,7 +31,8 @@ export const allCommands: SlashCommand[] = [
   takimListesi,
   oyuncuEkle,
   kadro,
-  taktikYukle,
+  kadroEkle,
+  taktikBelirle,
   taktikBilgi,
   macYap,
   puanTablosu,
@@ -34,6 +41,11 @@ export const allCommands: SlashCommand[] = [
   transfer,
   reytingGuncelle,
   sezonBaslat,
+  antrenman,
+  genArttir,
+  genDusur,
+  genAyarla,
+  yetkiliRol,
 ];
 
 export function buildCommandCollection(): Collection<string, SlashCommand> {

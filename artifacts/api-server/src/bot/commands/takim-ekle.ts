@@ -14,6 +14,12 @@ export const command: SlashCommand = {
     .addStringOption((o) =>
       o.setName("kisa-isim").setDescription("Takımın kısa adı (örn: KOC)").setRequired(true),
     )
+    .addRoleOption((o) =>
+      o
+        .setName("rol")
+        .setDescription("Takım Discord rolü (oyuncuların etiketleneceği rol)")
+        .setRequired(true),
+    )
     .addIntegerOption((o) =>
       o
         .setName("baz-reyting")
@@ -29,6 +35,7 @@ export const command: SlashCommand = {
     if (!(await requireAdmin(interaction))) return;
     const name = interaction.options.getString("isim", true).trim();
     const shortName = interaction.options.getString("kisa-isim", true).trim().toUpperCase();
+    const role = interaction.options.getRole("rol", true);
     const baseRating = interaction.options.getInteger("baz-reyting", true);
     const colorRaw = interaction.options.getString("renk")?.trim() ?? "#1f4ea1";
     const color = colorRaw.startsWith("#") ? colorRaw : `#${colorRaw}`;
@@ -36,15 +43,25 @@ export const command: SlashCommand = {
     try {
       const [team] = await db
         .insert(teamsTable)
-        .values({ name, shortName, baseRating, color })
+        .values({
+          name,
+          shortName,
+          discordRoleId: role.id,
+          guildId: interaction.guildId,
+          baseRating,
+          color,
+        })
         .returning();
       await interaction.reply({
         embeds: [
           successEmbed(
             "Takım Eklendi",
             `**${team!.name}** (${team!.shortName}) lige başarıyla eklendi.\n\n` +
-              `📊 **Baz Reyting:** ${team!.baseRating}\n🎨 **Renk:** ${team!.color}\n\n` +
-              `🆔 ID: \`${team!.id}\``,
+              `📊 **Baz Reyting:** ${team!.baseRating}\n` +
+              `🎨 **Renk:** ${team!.color}\n` +
+              `🎭 **Rol:** <@&${role.id}> (\`${role.id}\`)\n` +
+              `⚽ **Diziliş:** ${team!.formation}\n\n` +
+              `🆔 Takım ID: \`${team!.id}\``,
           ),
         ],
       });

@@ -2,7 +2,9 @@ import { db, teamsTable, playersTable, matchesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { generateJson } from "./gemini";
 import { getTacticForMatch, type TacticAnalysis } from "./tactics";
+import { getLineup } from "./lineup";
 import { logger } from "../../lib/logger";
+import { positionCategory } from "../util/positions";
 import type { Team, Player } from "@workspace/db";
 
 export interface MatchEvent {
@@ -33,6 +35,8 @@ export interface MatchSimulationResult {
   goalScorers: { teamId: number; playerId: number; assistPlayerId?: number }[];
   cardEvents: { playerId: number; type: "yellow" | "red" }[];
   matchId: number;
+  homeLineup: Player[];
+  awayLineup: Player[];
 }
 
 const HOME_BONUS = 3;
@@ -66,17 +70,17 @@ function poissonSample(lambda: number): number {
 }
 
 function getOutfieldPlayers(squad: Player[]): Player[] {
-  return squad.filter((p) => p.position.toUpperCase() !== "GK" && p.position.toUpperCase() !== "KL");
+  return squad.filter((p) => positionCategory(p.position) !== "GK");
 }
 
 function pickScorer(squad: Player[]): Player | null {
   const outfield = getOutfieldPlayers(squad);
   if (outfield.length === 0) return null;
   const weights = outfield.map((p) => {
-    const pos = p.position.toUpperCase();
-    if (pos === "FWD" || pos === "FB") return p.rating * 3;
-    if (pos === "MID" || pos === "OS") return p.rating * 1.5;
-    return p.rating * 0.5;
+    const cat = positionCategory(p.position);
+    if (cat === "FWD") return p.gen * 3;
+    if (cat === "MID") return p.gen * 1.5;
+    return p.gen * 0.5;
   });
   return pickWeighted(outfield, weights);
 }
@@ -85,10 +89,10 @@ function pickAssister(squad: Player[], scorer: Player): Player | null {
   const candidates = getOutfieldPlayers(squad).filter((p) => p.id !== scorer.id);
   if (candidates.length === 0) return null;
   const weights = candidates.map((p) => {
-    const pos = p.position.toUpperCase();
-    if (pos === "MID" || pos === "OS") return p.rating * 2.5;
-    if (pos === "FWD" || pos === "FB") return p.rating * 1.5;
-    return p.rating;
+    const cat = positionCategory(p.position);
+    if (cat === "MID") return p.gen * 2.5;
+    if (cat === "FWD") return p.gen * 1.5;
+    return p.gen;
   });
   return pickWeighted(candidates, weights);
 }
@@ -260,20 +264,20 @@ async function generateNarrative(
   const prompt = `Sen tecrübeli bir Türk spor spikerisin. Aşağıdaki maç sonucu için kısa, akıcı, heyecanlı bir Türkçe maç özeti yaz (3-4 cümle, en fazla 600 karakter).
 
 MAÇ:
-- Ev sahibi: ${homeTeam.name} (${homeTeam.shortName}) — GPR: ${homeGpr}, Diziliş: ${homeTactic.formation}
-- Deplasman: ${awayTeam.name} (${awayTeam.shortName}) — GPR: ${awayGpr}, Diziliş: ${awayTactic.formation}
+- Ev sahibi: ${homeTeam.name} (${homeTeam.shortName}) — GPR: ${homeGpr}, Diziliş: ${homeTactic.formationLabel}
+- Deplasman: ${awayTeam.name} (${awayTeam.shortName}) — GPR: ${awayGpr}, Diziliş: ${awayTactic.formationLabel}
 - Skor: ${homeScore} - ${awayScore}
 
 Spiker üslubuyla, özlü ve atmosferik yaz. Skoru, üstün gelen tarafı ve maçın tonunu (zorlu/kolay/sürpriz vb.) anlat. Sadece düz metin dön, başka hiçbir şey ekleme. Emoji kullanma.`;
   try {
     const res = await generateJson<{ narrative: string }>(
-      prompt + "\n\nYANIT FORMATI: { \"narrative\": \"<özet metin>\" }",
+      prompt + '\n\nYANIT FORMATI: { "narrative": "<özet metin>" }',
     );
     return res.narrative.slice(0, 800);
   } catch (err) {
     logger.error({ err }, "Anlatım üretimi başarısız");
     if (homeScore > awayScore) {
-      return `${homeTeam.name}, taraftarı önünde ${awayTeam.name}'ı ${homeScore}-${awayScore} mağlup etti. ${homeTeam.shortName}'ın ${homeTactic.formation} dizilişi sahaya hakim olurken, deplasman ekibi cevap verecek silahı bulamadı.`;
+      return `${homeTeam.name}, taraftarı önünde ${awayTeam.name}'ı ${homeScore}-${awayScore} mağlup etti. ${homeTeam.shortName}'ın ${homeTactic.formationLabel} dizilişi sahaya hakim olurken, deplasman ekibi cevap verecek silahı bulamadı.`;
     } else if (awayScore > homeScore) {
       return `Sürpriz deplasmanda! ${awayTeam.name}, ${homeTeam.name}'ı kendi sahasında ${awayScore}-${homeScore} yenmeyi başardı. ${awayTeam.shortName}'ın disiplinli oyunu, ev sahibi atmosferine baskın geldi.`;
     } else {
@@ -293,17 +297,23 @@ export async function simulateMatch(
   if (!homeTeam) throw new Error("Ev sahibi takım bulunamadı");
   if (!awayTeam) throw new Error("Deplasman takımı bulunamadı");
 
-  const [homeSquad, awaySquad, homeTactic, awayTactic] = await Promise.all([
-    db.select().from(playersTable).where(eq(playersTable.teamId, homeTeamId)),
-    db.select().from(playersTable).where(eq(playersTable.teamId, awayTeamId)),
+  const [homeLineup, awayLineup, homeTactic, awayTactic] = await Promise.all([
+    getLineup(homeTeam),
+    getLineup(awayTeam),
     getTacticForMatch(homeTeamId),
     getTacticForMatch(awayTeamId),
   ]);
 
-  if (homeSquad.length === 0)
-    throw new Error(`${homeTeam.name} takımının kadrosunda oyuncu yok. Önce /oyuncu-ekle ile oyuncu ekleyin.`);
-  if (awaySquad.length === 0)
-    throw new Error(`${awayTeam.name} takımının kadrosunda oyuncu yok. Önce /oyuncu-ekle ile oyuncu ekleyin.`);
+  if (!homeLineup) {
+    throw new Error(
+      `${homeTeam.name} için 11 kişilik kadro ayarlanmamış. Önce \`/kadro-ekle\` komutu ile maç kadrosunu belirleyin.`,
+    );
+  }
+  if (!awayLineup) {
+    throw new Error(
+      `${awayTeam.name} için 11 kişilik kadro ayarlanmamış. Önce \`/kadro-ekle\` komutu ile maç kadrosunu belirleyin.`,
+    );
+  }
 
   const homeGpr = homeTeam.baseRating + HOME_BONUS + homeTactic.tacticScore;
   const awayGpr = awayTeam.baseRating + 0 + awayTactic.tacticScore;
@@ -311,8 +321,8 @@ export async function simulateMatch(
   const ctx: SimContext = {
     homeTeam,
     awayTeam,
-    homeSquad,
-    awaySquad,
+    homeSquad: homeLineup,
+    awaySquad: awayLineup,
     homeGpr,
     awayGpr,
     homeTactic,
@@ -322,7 +332,6 @@ export async function simulateMatch(
   const sim = generateMatchEvents(ctx);
   const narrative = await generateNarrative(ctx, sim.homeScore, sim.awayScore);
 
-  // Persist match
   const [inserted] = await db
     .insert(matchesTable)
     .values({
@@ -344,7 +353,6 @@ export async function simulateMatch(
     })
     .returning({ id: matchesTable.id });
 
-  // Update team stats
   await applyMatchToStats({
     homeTeamId,
     awayTeamId,
@@ -352,10 +360,9 @@ export async function simulateMatch(
     awayScore: sim.awayScore,
   });
 
-  // Update player stats
   await applyPlayerStats({
-    homeSquad,
-    awaySquad,
+    homeSquad: homeLineup,
+    awaySquad: awayLineup,
     goalScorers: sim.goalScorers,
     cardEvents: sim.cardEvents,
   });
@@ -379,6 +386,8 @@ export async function simulateMatch(
     goalScorers: sim.goalScorers,
     cardEvents: sim.cardEvents,
     matchId: inserted!.id,
+    homeLineup,
+    awayLineup,
   };
 }
 
