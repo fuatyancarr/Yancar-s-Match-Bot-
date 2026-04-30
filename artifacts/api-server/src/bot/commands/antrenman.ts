@@ -16,7 +16,7 @@ import type { SlashCommand } from "./types";
 export const command: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("antrenman")
-    .setDescription("Bir saatte bir kez antrenman yapabilirsin (1-4 puan kazanırsın)"),
+    .setDescription("Bir saatte bir kez antrenman yapabilirsin (1 puan kazanırsın)"),
   async execute(interaction) {
     if (!interaction.inGuild()) {
       await interaction.reply({
