@@ -1,4 +1,4 @@
-İmport {
+Import {
   Client,
   Events,
   GatewayIntentBits,
