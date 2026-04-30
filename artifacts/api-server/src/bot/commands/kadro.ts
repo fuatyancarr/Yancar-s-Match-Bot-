@@ -65,7 +65,7 @@ export const command: SlashCommand = {
         value: list
           .map(
             (p) =>
-              `\`${p.rating}\` **${p.name}** — ${p.goals}G ${p.assists}A`,
+              `\`${p.rating}\` **${p.name}**${p.discordUserId ? ` (<@${p.discordUserId}>)` : ""} — ${p.goals}G ${p.assists}A`,
           )
           .join("\n")
           .slice(0, 1024),

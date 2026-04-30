@@ -1,4 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
+import { eq } from "drizzle-orm";
 import { db, playersTable } from "@workspace/db";
 import { findTeamByName } from "../services/teams";
 import { requireAdmin } from "../util/permissions";
@@ -14,8 +15,11 @@ export const command: SlashCommand = {
     .addStringOption((o) =>
       o.setName("takim").setDescription("Hangi takıma").setRequired(true),
     )
-    .addStringOption((o) =>
-      o.setName("isim").setDescription("Oyuncunun adı").setRequired(true),
+    .addUserOption((o) =>
+      o
+        .setName("kullanici")
+        .setDescription("Oyuncu olacak Discord kullanıcısı (etiket veya ID)")
+        .setRequired(true),
     )
     .addStringOption((o) =>
       o
@@ -36,6 +40,12 @@ export const command: SlashCommand = {
         .setMinValue(50)
         .setMaxValue(95)
         .setRequired(true),
+    )
+    .addStringOption((o) =>
+      o
+        .setName("isim")
+        .setDescription("Opsiyonel: özel oyuncu adı (boşsa Discord adı kullanılır)")
+        .setRequired(false),
     ),
   async execute(interaction) {
     if (!(await requireAdmin(interaction))) return;
@@ -48,9 +58,11 @@ export const command: SlashCommand = {
       });
       return;
     }
-    const name = interaction.options.getString("isim", true).trim();
+
+    const user = interaction.options.getUser("kullanici", true);
     const position = interaction.options.getString("pozisyon", true);
     const rating = interaction.options.getInteger("reyting", true);
+    const customName = interaction.options.getString("isim", false)?.trim();
 
     if (!POSITIONS.includes(position)) {
       await interaction.reply({
@@ -60,17 +72,52 @@ export const command: SlashCommand = {
       return;
     }
 
+    const existing = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.discordUserId, user.id))
+      .limit(1);
+    if (existing.length > 0) {
+      await interaction.reply({
+        embeds: [
+          errorEmbed(
+            "Kullanıcı Zaten Kayıtlı",
+            `<@${user.id}> zaten bir oyuncu olarak kayıtlı (\`${existing[0]!.name}\`, ID: \`${existing[0]!.id}\`).`,
+          ),
+        ],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    let displayName: string | null = null;
+    try {
+      const member = await interaction.guild?.members.fetch(user.id);
+      displayName = member?.displayName ?? null;
+    } catch {
+      displayName = null;
+    }
+    const name = customName || displayName || user.displayName || user.username;
+
     const [player] = await db
       .insert(playersTable)
-      .values({ teamId: team.id, name, position, rating })
+      .values({
+        teamId: team.id,
+        discordUserId: user.id,
+        name,
+        position,
+        rating,
+      })
       .returning();
 
     await interaction.reply({
       embeds: [
         successEmbed(
           "Oyuncu Eklendi",
-          `**${player!.name}** \`${player!.position}\` (${player!.rating}) ` +
-            `**${team.name}** kadrosuna katıldı.\n\n🆔 Oyuncu ID: \`${player!.id}\``,
+          `<@${user.id}> → **${player!.name}** \`${player!.position}\` (${player!.rating})\n` +
+            `**${team.name}** kadrosuna katıldı.\n\n` +
+            `🆔 Oyuncu ID: \`${player!.id}\`\n` +
+            `👤 Discord ID: \`${user.id}\``,
         ),
       ],
     });
