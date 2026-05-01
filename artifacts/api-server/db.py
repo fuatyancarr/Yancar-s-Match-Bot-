@@ -325,17 +325,8 @@ async def adjust_player_gen(player_id: int, delta: int) -> dict:
 
 async def record_training(player: dict, guild_id: str) -> dict:
     """Returns dict with keys: amount, player, gained_gen, new_gen, trainings_since_gen, trainings_remaining."""
-    import random
     from config import MAX_GEN, MIN_GEN, TRAININGS_PER_GEN
-    r = random.random()
-    if r < 0.4:
-        amount = 1
-    elif r < 0.75:
-        amount = 2
-    elif r < 0.95:
-        amount = 3
-    else:
-        amount = 4
+    amount = 1
 
     current_count = player["trainings_since_gen"]
     current_gen = player["rating"]

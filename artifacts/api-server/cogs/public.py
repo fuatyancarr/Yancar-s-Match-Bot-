@@ -44,7 +44,7 @@ class PublicCog(commands.Cog):
         e.add_field(
             name="💪 Antrenman & GEN",
             value=(
-                f"`/antrenman` Antrenman yap ({cooldown_h} saatlik bekleme, +1 ile +4 puan, {TRAININGS_PER_GEN} antrenman = +1 GEN)\n"
+                f"`/antrenman` Antrenman yap ({cooldown_h} saatlik bekleme, her antrenmanda +1 puan, {TRAININGS_PER_GEN} antrenman = +1 GEN)\n"
                 "`/genarttir <oyuncu>` GEN +1 (yetkili)\n"
                 "`/gendusur <oyuncu>` GEN -1 (yetkili)\n"
                 "`/genayarla <oyuncu> <gen>` GEN ayarla (yetkili)"
@@ -300,7 +300,7 @@ class PublicCog(commands.Cog):
         )
 
     # ─── /antrenman ───────────────────────────────────────────────────────────
-    @app_commands.command(name="antrenman", description="Antrenman yap (saatte bir, 1-4 puan kazanırsın)")
+    @app_commands.command(name="antrenman", description="Antrenman yap (saatte bir, +1 puan kazanırsın)")
     async def antrenman(self, interaction: discord.Interaction):
         if not interaction.guild:
             await interaction.response.send_message(
@@ -358,7 +358,7 @@ class PublicCog(commands.Cog):
         amount = result["amount"]
         new_count = old_count + amount
         lines = [
-            f"🎲 Bu antrenmandan **{amount}** puan aldın!",
+            f"💪 Antrenmandan **+{amount}** puan kazandın!",
             f"📊 Toplam: `{old_count}` + `{amount}` = `{new_count}` / {TRAININGS_PER_GEN}",
             "",
         ]
