@@ -22,6 +22,88 @@ async def close_pool():
         _pool = None
 
 
+async def init_db():
+    """Tabloları oluşturur (eğer yoksa)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+CREATE TABLE IF NOT EXISTS teams (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    short_name TEXT NOT NULL,
+    discord_role_id TEXT,
+    guild_id TEXT,
+    base_rating INTEGER NOT NULL DEFAULT 55,
+    color TEXT DEFAULT '#e50914',
+    wins INTEGER NOT NULL DEFAULT 0,
+    draws INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    goals_for INTEGER NOT NULL DEFAULT 0,
+    goals_against INTEGER NOT NULL DEFAULT 0,
+    points INTEGER NOT NULL DEFAULT 0,
+    matches_played INTEGER NOT NULL DEFAULT 0,
+    lineup_player_ids TEXT,
+    lineup_set_at TIMESTAMPTZ,
+    formation TEXT DEFAULT '4-4-2',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS players (
+    id SERIAL PRIMARY KEY,
+    team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+    discord_user_id TEXT,
+    guild_id TEXT,
+    name TEXT NOT NULL,
+    position TEXT NOT NULL DEFAULT 'CM',
+    rating INTEGER NOT NULL DEFAULT 55,
+    goals INTEGER NOT NULL DEFAULT 0,
+    assists INTEGER NOT NULL DEFAULT 0,
+    yellow_cards INTEGER NOT NULL DEFAULT 0,
+    red_cards INTEGER NOT NULL DEFAULT 0,
+    appearances INTEGER NOT NULL DEFAULT 0,
+    trainings_since_gen INTEGER NOT NULL DEFAULT 0,
+    last_training_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS matches (
+    id SERIAL PRIMARY KEY,
+    home_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+    away_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+    home_score INTEGER NOT NULL DEFAULT 0,
+    away_score INTEGER NOT NULL DEFAULT 0,
+    home_gpr INTEGER NOT NULL DEFAULT 0,
+    away_gpr INTEGER NOT NULL DEFAULT 0,
+    home_tactic_score INTEGER NOT NULL DEFAULT 0,
+    away_tactic_score INTEGER NOT NULL DEFAULT 0,
+    home_possession INTEGER NOT NULL DEFAULT 50,
+    home_shots INTEGER NOT NULL DEFAULT 0,
+    away_shots INTEGER NOT NULL DEFAULT 0,
+    home_shots_on_target INTEGER NOT NULL DEFAULT 0,
+    away_shots_on_target INTEGER NOT NULL DEFAULT 0,
+    narrative TEXT,
+    events TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS trainings (
+    id SERIAL PRIMARY KEY,
+    player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+    discord_user_id TEXT,
+    guild_id TEXT,
+    amount INTEGER NOT NULL DEFAULT 1,
+    resulted_in_gen_increase INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS gen_authorized_roles (
+    guild_id TEXT NOT NULL,
+    role_id TEXT NOT NULL,
+    PRIMARY KEY (guild_id, role_id)
+);
+        """)
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 async def fetchrow(query: str, *args):
     pool = await get_pool()

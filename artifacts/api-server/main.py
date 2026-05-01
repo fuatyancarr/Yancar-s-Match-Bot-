@@ -286,6 +286,8 @@ async def main():
         sys.exit(1)
 
     await _uptime_server()
+    await database.init_db()
+    log.info("Veritabanı tabloları hazır.")
 
     bot = TurkLigiBot()
     _bot_ref = bot
