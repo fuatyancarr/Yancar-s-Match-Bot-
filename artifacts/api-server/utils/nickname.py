@@ -3,9 +3,32 @@ import discord
 
 MAX_NICK_LEN = 32
 
+TURKCE_MEVKI: dict[str, str] = {
+    "GK":  "KLC",
+    "CB":  "STP",
+    "LB":  "SLB",
+    "RB":  "SĞB",
+    "LWB": "SKB",
+    "RWB": "SĞK",
+    "CDM": "DOS",
+    "CM":  "OS",
+    "CAM": "HOS",
+    "LM":  "SLO",
+    "RM":  "SĞO",
+    "LW":  "SAL",
+    "RW":  "SAK",
+    "ST":  "FRV",
+    "CF":  "SAN",
+}
+
+
+def position_tr(position: str) -> str:
+    return TURKCE_MEVKI.get(position.upper().strip(), position.upper().strip())
+
 
 def format_nickname(base_name: str, gen: int, position: str) -> str:
-    suffix = f" | {gen} | {position}"
+    mevki = position_tr(position)
+    suffix = f" ┃ {gen}G ┃ {mevki}"
     allowed = MAX_NICK_LEN - len(suffix)
     if allowed <= 0:
         return base_name[:MAX_NICK_LEN]
@@ -16,10 +39,11 @@ def format_nickname(base_name: str, gen: int, position: str) -> str:
 def extract_base_name(current_nick: str | None) -> str | None:
     if not current_nick:
         return None
-    idx = current_nick.find(" | ")
-    if idx == -1:
-        return current_nick
-    return current_nick[:idx].strip()
+    for sep in (" ┃ ", " | "):
+        idx = current_nick.find(sep)
+        if idx != -1:
+            return current_nick[:idx].strip()
+    return current_nick
 
 
 async def apply_nickname(

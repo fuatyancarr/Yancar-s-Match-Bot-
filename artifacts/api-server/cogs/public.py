@@ -81,7 +81,7 @@ class PublicCog(commands.Cog):
         )
         e.add_field(
             name="🏷️ Discord Takma Adı",
-            value="Format: `İsim | GEN | MEVKİ` (örn. `Ahmet | 67 | ST`). Otomatik güncellenir.",
+            value="Format: `İsim ┃ GENg ┃ MEVKİ` (örn. `A. Yılmaz ┃ 67G ┃ FRV`). Otomatik güncellenir.",
             inline=False,
         )
         e.set_footer(text="Türk Ligi Bot • Powered by Gemini AI")
