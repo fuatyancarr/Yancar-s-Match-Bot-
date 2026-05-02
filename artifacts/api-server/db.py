@@ -12,7 +12,7 @@ async def get_pool() -> asyncpg.Pool | None:
     if _pool is None:
         dsn = os.environ.get("DATABASE_URL")
         if not dsn:
-            log.warning("⚠️ DATABASE_URL bulunamadı. SQL özellikleri devre dışı, Firebase üzerinden devam ediliyor.")
+            log.warning("⚠️ DATABASE_URL bulunamadı. SQL özellikleri devre dışı.")
             return None
         try:
             _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=10)
@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS teams (
     formation TEXT DEFAULT '4-4-2',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
+        """)
+        await conn.execute("""
 CREATE TABLE IF NOT EXISTS players (
     id SERIAL PRIMARY KEY,
     team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
@@ -68,31 +69,6 @@ CREATE TABLE IF NOT EXISTS players (
 );
         """)
         log.info("✅ SQL Tabloları kontrol edildi.")
-    goals_against INTEGER NOT NULL DEFAULT 0,
-    points INTEGER NOT NULL DEFAULT 0,
-    matches_played INTEGER NOT NULL DEFAULT 0,
-    lineup_player_ids TEXT,
-    lineup_set_at TIMESTAMPTZ,
-    formation TEXT DEFAULT '4-4-2',
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS players (
-    id SERIAL PRIMARY KEY,
-    team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
-    discord_user_id TEXT,
-    guild_id TEXT,
-    name TEXT NOT NULL,
-    position TEXT NOT NULL DEFAULT 'CM',
-    rating INTEGER NOT NULL DEFAULT 55,
-    goals INTEGER NOT NULL DEFAULT 0
-);
-        """)
-        log.info("✅ SQL Tabloları kontrol edildi (Bağlantı aktif).")
-    assists INTEGER NOT NULL DEFAULT 0,
-    yellow_cards INTEGER NOT NULL DEFAULT 0,
-    red_cards INTEGER NOT NULL DEFAULT 0,
-    appearances INTEGER NOT NULL DEFAULT 0,
     trainings_since_gen INTEGER NOT NULL DEFAULT 0,
     last_training_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
