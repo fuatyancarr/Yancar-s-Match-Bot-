@@ -1,4 +1,4 @@
-"""Database connection and all query functions (Safe Mode for Firebase)."""
+"""Database connection (Safe Mode)."""
 from __future__ import annotations
 import asyncpg
 import os
@@ -28,31 +28,9 @@ async def close_pool():
         _pool = None
 
 async def init_db():
-    """Tabloları oluşturur (Eğer SQL bağlantısı varsa)."""
-    pool = await get_pool()
-    if pool is None:
-        return
-
-    async with pool.acquire() as conn:
-        await conn.execute("""
-CREATE TABLE IF NOT EXISTS teams (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    short_name TEXT NOT NULL,
-    discord_role_id TEXT,
-    guild_id TEXT,
-    base_rating INTEGER NOT NULL DEFAULT 55,
-    color TEXT DEFAULT '#e50914',
-    wins INTEGER NOT NULL DEFAULT 0,
-    draws INTEGER NOT NULL DEFAULT 0,
-    losses INTEGER NOT NULL DEFAULT 0,
-    goals_for INTEGER NOT NULL DEFAULT 0,
-    goals_against INTEGER NOT NULL DEFAULT 0,
-    points INTEGER NOT NULL DEFAULT 0,
-    matches_played INTEGER NOT NULL DEFAULT 0,
-    lineup_player_ids TEXT,
-    lineup_set_at TIMESTAMPTZ,
-    formation TEXT DEFAULT '4-4-2',
+    """Boş init fonksiyonu."""
+    log.info("ℹ️ SQL Tablo kontrolü atlandı (Firebase aktif).")
+    return
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
         """)
