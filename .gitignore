@@ -47,3 +47,5 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+# Firebase Secret
+firebase_key.json
