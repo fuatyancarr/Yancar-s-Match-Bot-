@@ -29,6 +29,28 @@ try:
     _fb_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
     if _fb_json:
         _fb_dict = json.loads(_fb_json)
+        # Türkçe girilmiş anahtarları İngilizceye çevir
+        _key_map = {
+            "tür": "type",
+            "proje_kimliği": "project_id",
+            "hizmet_hesabı": "service_account",
+            "özel_anahtar_kimliği": "private_key_id",
+            "özel_anahtar": "private_key",
+            "istemci_e_postası": "client_email",
+            "istemci_kimliği": "client_id",
+            "kimlik_doğrulama_uri": "auth_uri",
+            "belirteç_uri": "token_uri",
+        }
+        normalized: dict = {}
+        for k, v in _fb_dict.items():
+            eng_key = _key_map.get(k, k)
+            normalized[eng_key] = v
+        # "type" değeri Türkçe geldiyse düzelt
+        if normalized.get("type") == "hizmet_hesabı":
+            normalized["type"] = "service_account"
+        # Orijinal JSON'daki alan adları zaten İngilizce olabilir, birleştir
+        _fb_dict.update(normalized)
+        _fb_dict["type"] = "service_account"
         cred = credentials.Certificate(_fb_dict)
         firebase_admin.initialize_app(cred)
         firebase_db = firestore.client()
