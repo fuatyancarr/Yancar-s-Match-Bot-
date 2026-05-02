@@ -48,4 +48,4 @@ Thumbs.db
 .cache/
 .local/
 # Firebase Secret
-firebase_key.json
+key.json
