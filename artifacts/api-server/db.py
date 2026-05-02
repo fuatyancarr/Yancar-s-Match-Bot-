@@ -1,19 +1,26 @@
-"""Database connection and all query functions (asyncpg)."""
+"""Database connection and all query functions (Safe Mode for Firebase)."""
 from __future__ import annotations
 import asyncpg
 import os
-import json
-from datetime import datetime
+import logging
 
+log = logging.getLogger("turk-ligi")
 _pool: asyncpg.Pool | None = None
 
-
-async def get_pool() -> asyncpg.Pool:
+async def get_pool() -> asyncpg.Pool | None:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(os.environ["DATABASE_URL"], min_size=1, max_size=10)
+        # DATABASE_URL yoksa çökme, sadece uyarı ver
+        dsn = os.environ.get("DATABASE_URL")
+        if not dsn:
+            log.warning("⚠️ DATABASE_URL bulunamadı. SQL özellikleri devre dışı, Firebase üzerinden devam ediliyor.")
+            return None
+        try:
+            _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=10)
+        except Exception as e:
+            log.error(f"❌ SQL Veritabanı bağlantı hatası: {e}")
+            return None
     return _pool
-
 
 async def close_pool():
     global _pool
@@ -21,10 +28,12 @@ async def close_pool():
         await _pool.close()
         _pool = None
 
-
 async def init_db():
-    """Tabloları oluşturur (eğer yoksa)."""
+    """Tabloları oluşturur (Eğer SQL bağlantısı varsa)."""
     pool = await get_pool()
+    if pool is None:
+        return  # Bağlantı yoksa burayı sessizce atla
+
     async with pool.acquire() as conn:
         await conn.execute("""
 CREATE TABLE IF NOT EXISTS teams (
@@ -56,7 +65,10 @@ CREATE TABLE IF NOT EXISTS players (
     name TEXT NOT NULL,
     position TEXT NOT NULL DEFAULT 'CM',
     rating INTEGER NOT NULL DEFAULT 55,
-    goals INTEGER NOT NULL DEFAULT 0,
+    goals INTEGER NOT NULL DEFAULT 0
+);
+        """)
+        log.info("✅ SQL Tabloları kontrol edildi (Bağlantı aktif).")
     assists INTEGER NOT NULL DEFAULT 0,
     yellow_cards INTEGER NOT NULL DEFAULT 0,
     red_cards INTEGER NOT NULL DEFAULT 0,
