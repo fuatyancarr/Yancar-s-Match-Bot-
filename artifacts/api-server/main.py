@@ -14,7 +14,7 @@ from discord.ext import commands
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-import db as database
+from artifacts.api_server import db as database
 
 logging.basicConfig(
     level=logging.INFO,
