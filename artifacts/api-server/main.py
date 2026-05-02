@@ -22,11 +22,10 @@ logging.basicConfig(
 log = logging.getLogger("turk-ligi")
 
 COGS = ["cogs.public", "cogs.training_gen", "cogs.admin"]
-
-# RENDER İÇİN PORTU 10000 YAPTIK
-PORT = int(os.environ.get("PORT", 10000))
+PORT = int(os.environ.get("PORT", 8080))
 START_TIME = time.time()
 _bot_ref: "TurkLigiBot | None" = None
+
 
 def _fmt_uptime(seconds: float) -> str:
     td = datetime.timedelta(seconds=int(seconds))
@@ -34,19 +33,20 @@ def _fmt_uptime(seconds: float) -> str:
     hours, rem = divmod(td.seconds, 3600)
     mins, secs = divmod(rem, 60)
     parts = []
-    if days: parts.append(f"{days}g")
-    if hours: parts.append(f"{hours}s")
-    if mins: parts.append(f"{mins}dk")
+    if days:
+        parts.append(f"{days}g")
+    if hours:
+        parts.append(f"{hours}s")
+    if mins:
+        parts.append(f"{mins}dk")
     parts.append(f"{secs}sn")
     return " ".join(parts)
+
 
 class TurkLigiBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.members = True
-        # MESAJLARI OKUMA İZNİ BURAYA EKLENDİ
-        intents.message_content = True 
-        # Prefix'i kodda neyse o kullanmalısın, şimdilik "!" bıraktım
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
@@ -55,52 +55,35 @@ class TurkLigiBot(commands.Bot):
                 await self.load_extension(cog)
                 log.info(f"Cog yüklendi: {cog}")
             except Exception as e:
-                log.error(f"Cog yüklenemedi {cog}: {e}")
-        log.info("Slash komutlar senkronize ediliyor...")
-        await self.tree.sync()
+                log.error(f"Cog yüklenemedi {cog}: {e}", exc_info=True)
+        log.info("Slash komutlar global olarak senkronize ediliyor...")
+        synced = await self.tree.sync()
+        log.info(f"Senkronize edilen komut sayısı: {len(synced)}")
 
     async def on_ready(self):
         log.info(f"Bot hazır: {self.user} (ID: {self.user.id})")
+        await self.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.watching,
+                name="Türk Ligi ⚽"
+            )
+        )
+
+    async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        log.error(f"Slash komut hatası [{interaction.command and interaction.command.name}]: {error}", exc_info=True)
+        cause = getattr(error, "original", error)
+        detail = str(cause).strip() if str(cause) else "Bilinmeyen bir hata oluştu."
+        msg = f"❌ {detail}"
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except Exception:
+            pass
+
 
 async def _uptime_server():
-    """Render ve UptimeRobot için sunucu."""
-    from aiohttp import web
-    async def index(request):
-        return web.Response(text="Bot 7/24 Aktif!", content_type="text/plain")
-    
-    async def ping(request):
-        ready = _bot_ref is not None and _bot_ref.is_ready()
-        return web.json_response({"status": "ok" if ready else "starting"})
-
-    app = web.Application()
-    app.router.add_get("/", index)
-    app.router.add_get("/api/ping", ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", PORT).start()
-    log.info(f"Uptime sunucusu port {PORT} üzerinde çalışıyor.")
-
-async def main():
-    global _bot_ref
-    token = os.environ.get("DISCORD_BOT_TOKEN")
-    if not token:
-        log.error("Token bulunamadı!")
-        return
-
-    await _uptime_server()
-    
-    try:
-        await database.init_db()
-    except:
-        log.warning("Veritabanı bağlanamadı ama bot başlatılıyor...")
-
-    bot = TurkLigiBot()
-    _bot_ref = bot
-    async with bot:
-        await bot.start(token)
-
-if __name__ == "__main__":
-    asyncio.run(main())
     from aiohttp import web
 
     async def index(request):
